@@ -1,0 +1,146 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders Page</title>
+    <script>
+        // Dummy menu data
+        const menu = [
+            { itemID: 1, itemName: "Burger", itemPrice: 50 },
+            { itemID: 2, itemName: "Pizza", itemPrice: 100 },
+            { itemID: 3, itemName: "Pasta", itemPrice: 80 }
+        ];
+
+        // Function to display the menu table
+        function displayMenu() {
+            const menuTableBody = document.getElementById('menuTableBody');
+            menuTableBody.innerHTML = '';
+            menu.forEach((item) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.itemID}</td>
+                    <td>${item.itemName}</td>
+                    <td>${item.itemPrice}</td>
+                    <td><button class="addButton" onclick="addItem(${item.itemID})">Add</button></td>
+                `;
+                menuTableBody.appendChild(row);
+            });
+        }
+
+        // Function to add an item to the order
+        function addItem(itemID) {
+            const item = menu.find((menuItem) => menuItem.itemID === itemID);
+            if (item) {
+                const orders = JSON.parse(localStorage.getItem('orders')) || [];
+                orders.push(item);
+                localStorage.setItem('orders', JSON.stringify(orders));
+                displayOrderTable();
+            }
+        }
+
+        // Function to display the order table
+        function displayOrderTable() {
+            const orderTableBody = document.getElementById('orderTableBody');
+            orderTableBody.innerHTML = '';
+            const orders = JSON.parse(localStorage.getItem('orders')) || [];
+            orders.forEach((order, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${order.itemID}</td>
+                    <td>${order.itemName}</td>
+                    <td>${order.itemPrice}</td>
+                `;
+                orderTableBody.appendChild(row);
+            });
+        }
+
+        // Function to handle submit button click
+        function handleSubmit() {
+            alert('Order submitted successfully!');
+            location.href = 'user.html';
+        }
+
+        // On page load
+        window.onload = () => {
+            // Retrieve and display user ID
+            const userId = localStorage.getItem('userId') || 'Unknown';
+            document.getElementById('userId').textContent = userId;
+
+            // Display menu and order table
+            displayMenu();
+            displayOrderTable();
+        };
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .button {
+            margin: 10px;
+            padding: 10px 20px;
+            background-color: blue;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: darkblue;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome, User <span id="userId"></span></h1>
+
+    <h2>Menu</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Item ID</th>
+                <th>Item Name</th>
+                <th>Item Price</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="menuTableBody">
+            <!-- Menu items will populate here -->
+        </tbody>
+    </table>
+
+    <h2>Your Orders</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Order ID</th>
+                <th>Item ID</th>
+                <th>Item Name</th>
+                <th>Item Price</th>
+            </tr>
+        </thead>
+        <tbody id="orderTableBody">
+            <!-- Orders will populate here -->
+        </tbody>
+    </table>
+
+    <button class="button" onclick="handleSubmit()">Submit</button>
+</body>
+</html>

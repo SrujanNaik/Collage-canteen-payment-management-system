@@ -1,0 +1,127 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Page</title>
+    <script>
+        // Check for localStorage availability
+        function isLocalStorageAvailable() {
+            try {
+                const test = "__storage_test__";
+                localStorage.setItem(test, test);
+                localStorage.removeItem(test);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // Increment user ID and initialize data
+        function initializeUserData() {
+            if (isLocalStorageAvailable()) {
+                let userId = localStorage.getItem('userId') || 1;
+                localStorage.setItem('userId', parseInt(userId) + 1);
+                document.getElementById('userId').textContent = userId;
+            } else {
+                alert("Local storage is not available. Some features may not work.");
+            }
+        }
+
+        // Display orders in the table
+        function displayOrders() {
+            const orders = JSON.parse(localStorage.getItem('orders')) || [];
+            const tableBody = document.getElementById('orderTableBody');
+            tableBody.innerHTML = '';
+            let total = 0;
+
+            orders.forEach((order, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${order.name}</td>
+                    <td>${order.price.toFixed(2)}</td>
+                `;
+                tableBody.appendChild(row);
+                total += order.price;
+            });
+
+            document.getElementById('totalPrice').textContent = total.toFixed(2);
+        }
+
+        // Placeholder for scanner functionality
+        function showScanner() {
+            alert('Scanner functionality coming soon!');
+        }
+
+        // Initialize page on load
+        window.onload = () => {
+            initializeUserData();
+            displayOrders();
+        };
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f9f9f9;
+        }
+        .button {
+            margin: 10px;
+            padding: 10px 20px;
+            background-color: blue;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: darkblue;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background-color: white;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        @media (max-width: 600px) {
+            table, th, td {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome, User <span id="userId"></span></h1>
+    <button class="button" onclick="location.href='orders.html'" aria-label="Go to orders page">Order</button>
+
+    <h2>Your Orders</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Order ID</th>
+                <th>Order Name</th>
+                <th>Price</th>
+            </tr>
+        </thead>
+        <tbody id="orderTableBody">
+            <!-- Orders will populate here -->
+        </tbody>
+    </table>
+    <h3>Total Price: ₹<span id="totalPrice">0.00</span></h3>
+
+    <button class="button" onclick="showScanner()" aria-label="Open scanner functionality">Open Scanner</button>
+</body>
+</html>

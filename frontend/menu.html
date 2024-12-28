@@ -1,0 +1,136 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background-color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            padding: 15px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #ddd;
+        }
+        .button {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            text-decoration: none;
+            text-align: center;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        .button:hover {
+            background-color: #0056b3;
+            transform: translateY(-3px);
+        }
+        @media (max-width: 600px) {
+            th, td {
+                font-size: 14px;
+                padding: 10px;
+            }
+        }
+    </style>
+    <script>
+        // Dummy data for menu
+        const menu = [
+            { orderId: 'MNU001', name: 'Pizza', category: 'Food', price: 500 },
+            { orderId: 'MNU002', name: 'Burger', category: 'Food', price: 200 },
+            { orderId: 'MNU003', name: 'Coke', category: 'Beverage', price: 50 },
+        ];
+
+        // Function to load menu items into the table
+        function loadMenu() {
+            const tableBody = document.getElementById('menuTableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+            menu.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.orderId}</td>
+                    <td>${item.name}</td>
+                    <td>${item.category}</td>
+                    <td>${item.price}</td>
+                    <td>
+                        <button onclick="deleteMenuItem(${index})" class="button">Delete</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Function to delete a menu item
+        function deleteMenuItem(index) {
+            menu.splice(index, 1); // Remove the item from the array
+            loadMenu(); // Reload the table
+        }
+
+        // Function to add a new item to the menu
+        function addItemToMenu() {
+            const orderId = prompt('Enter order ID:');
+            const name = prompt('Enter item name:');
+            const category = prompt('Enter item category:');
+            const price = parseFloat(prompt('Enter item price:'));
+
+            if (orderId && name && category && !isNaN(price)) {
+                menu.push({ orderId, name, category, price });
+                alert(`Item "${name}" added to the menu successfully!`);
+                loadMenu(); // Reload the menu table
+            } else {
+                alert('Invalid input. Please provide all details.');
+            }
+        }
+
+        window.onload = loadMenu;
+    </script>
+</head>
+<body>
+    <h1>Menu Management</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Order ID</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="menuTableBody">
+            <!-- Menu items will populate here -->
+        </tbody>
+    </table>
+    <button class="button" onclick="addItemToMenu()">Add Item to Menu</button>
+    <a href="admin.html" class="button">Back to Admin Dashboard</a>
+</body>
+</html>
