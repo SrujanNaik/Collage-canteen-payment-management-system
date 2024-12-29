@@ -63,18 +63,20 @@
         }
     </style>
     <script>
-        // Dummy data for menu
-        const menu = [
-            { orderId: 'MNU001', name: 'Pizza', category: 'Food', price: 500 },
-            { orderId: 'MNU002', name: 'Burger', category: 'Food', price: 200 },
-            { orderId: 'MNU003', name: 'Coke', category: 'Beverage', price: 50 },
-        ];
+        // Function to load menu items from the server
+        
+		// Function to load menu items from the server
 
-        // Function to load menu items into the table
-        function loadMenu() {
-            const tableBody = document.getElementById('menuTableBody');
-            tableBody.innerHTML = ''; // Clear existing rows
-            menu.forEach((item, index) => {
+function loadMenu() {
+    const tableBody = document.getElementById('menuTableBody');
+    tableBody.innerHTML = ''; // Clear existing rows
+
+    // Fetch menu data from the Flask backend
+    fetch('/get_menu')
+        .then(response => response.json())  // Parse the JSON response
+        .then(menu => {
+            // Iterate through the menu items and populate the table
+            menu.forEach((item) => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${item.orderId}</td>
@@ -82,36 +84,92 @@
                     <td>${item.category}</td>
                     <td>${item.price}</td>
                     <td>
-                        <button onclick="deleteMenuItem(${index})" class="button">Delete</button>
+                        <button onclick="deleteMenuItem('${item.orderId}')" class="button">Delete</button>
                     </td>
                 `;
                 tableBody.appendChild(row);
             });
-        }
+        })
+        .catch(error => console.error('Error fetching menu data:', error));
+}
+            
 
-        // Function to delete a menu item
-        function deleteMenuItem(index) {
-            menu.splice(index, 1); // Remove the item from the array
-            loadMenu(); // Reload the table
-        }
+// Function to delete a menu item (Placeholder for database interaction)
+function deleteMenuItem(orderId) {
+    fetch(`/delete_menu_item/${orderId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+        loadMenu(); // Reload the menu table
+    })
+    .catch(error => console.error('Error deleting menu item:', error));
+}
+
 
         // Function to add a new item to the menu
-        function addItemToMenu() {
-            const orderId = prompt('Enter order ID:');
-            const name = prompt('Enter item name:');
-            const category = prompt('Enter item category:');
-            const price = parseFloat(prompt('Enter item price:'));
+        
+function createAddItemForm() {
+    // Check if the form already exists, prevent duplicate forms
+    if (document.getElementById('addItemForm')) return;
 
-            if (orderId && name && category && !isNaN(price)) {
-                menu.push({ orderId, name, category, price });
-                alert(`Item "${name}" added to the menu successfully!`);
-                loadMenu(); // Reload the menu table
-            } else {
-                alert('Invalid input. Please provide all details.');
-            }
-        }
+    // Create a form container
+    const formContainer = document.createElement('div');
+    formContainer.id = 'addItemForm';
+    formContainer.style.marginTop = '20px';
+    formContainer.innerHTML = `
+        <h3>Add New Menu Item</h3>
+        <label>Order ID: <input type="text" id="orderIdInput"></label><br><br>
+        <label>Item Name: <input type="text" id="nameInput"></label><br><br>
+        <label>Category: <input type="text" id="categoryInput"></label><br><br>
+        <label>Price: <input type="number" id="priceInput" step="0.01"></label><br><br>
+        <button class="button" onclick="submitNewItem()">Done</button>
+        <button class="button" style="background-color: red;" onclick="cancelAddItem()">Cancel</button>
+    `;
 
-        window.onload = loadMenu;
+    // Append the form to the body
+    document.body.appendChild(formContainer);
+}
+
+function submitNewItem() {
+    const orderId = document.getElementById('orderIdInput').value.trim();
+    const name = document.getElementById('nameInput').value.trim();
+    const category = document.getElementById('categoryInput').value.trim();
+    const price = parseFloat(document.getElementById('priceInput').value);
+
+    if (orderId && name && category && !isNaN(price)) {
+        const newItem = { orderId, name, category, price };
+
+        // Send the new item to the server
+        fetch('/add_menu_item', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(newItem),
+        })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                loadMenu();  // Reload the menu table
+                cancelAddItem();  // Remove the form
+            })
+            .catch(error => console.error('Error adding menu item:', error));
+    } else {
+        alert('Please fill out all fields correctly.');
+    }
+}
+
+function cancelAddItem() {
+    const form = document.getElementById('addItemForm');
+    if (form) {
+        form.remove();
+    }
+}
+
+
+        window.onload = loadMenu;  // Load menu items when the page loads
     </script>
 </head>
 <body>
@@ -130,7 +188,10 @@
             <!-- Menu items will populate here -->
         </tbody>
     </table>
-    <button class="button" onclick="addItemToMenu()">Add Item to Menu</button>
-    <a href="admin.html" class="button">Back to Admin Dashboard</a>
+    
+    <button class="button" onclick="createAddItemForm()">Add Item to Menu</button>
+
+    <a href="/admin" class="button">Back to Admin Dashboard</a>
 </body>
 </html>
+

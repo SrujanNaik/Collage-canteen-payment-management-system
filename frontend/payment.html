@@ -63,17 +63,15 @@
         }
     </style>
     <script>
-        // Example dummy data for payment details
-        const payments = [
-            { transactionId: 'TXN123456', amount: 1500, date: '2024-12-01', time: '10:30 AM' },
-            { transactionId: 'TXN123457', amount: 2000, date: '2024-12-02', time: '11:15 AM' },
-            { transactionId: 'TXN123458', amount: 1750, date: '2024-12-03', time: '02:45 PM' },
-        ];
 
-        // Function to display payment data in the table
-        function loadPayments() {
-            const tableBody = document.getElementById('paymentTableBody');
-            tableBody.innerHTML = ''; // Clear existing rows
+fetch('/get_payment_details')
+    .then(response => response.json())
+    .then(payments => {
+        console.log('Payments fetched:', payments); // Inspect the full response
+        const tableBody = document.getElementById('paymentTableBody');
+        tableBody.innerHTML = ''; // Clear existing rows
+
+        if (Array.isArray(payments)) {
             payments.forEach(payment => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -84,9 +82,14 @@
                 `;
                 tableBody.appendChild(row);
             });
+        } else {
+            alert('Invalid payment data format.');
         }
-
-        window.onload = loadPayments;
+    })
+    .catch(error => {
+        console.error('Error fetching payment details:', error);
+        alert('Failed to load payment details.');
+    });
     </script>
 </head>
 <body>
@@ -104,6 +107,7 @@
             <!-- Payment details will populate here -->
         </tbody>
     </table>
-    <a href="admin.html" class="back-button">Back to Admin Dashboard</a>
+    <a href="/admin" class="back-button">Back to Admin Dashboard</a>
 </body>
 </html>
+

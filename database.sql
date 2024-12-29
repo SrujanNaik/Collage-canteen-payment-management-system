@@ -11,6 +11,9 @@ CREATE TABLE MENU (
     item_name VARCHAR(100) NOT NULL,
     price DECIMAL(10, 2) NOT NULL
 );
+ALTER TABLE MENU
+ADD COLUMN category VARCHAR(100);
+
 
 -- Create Students
 CREATE TABLE Students(
@@ -83,3 +86,35 @@ STARTS '2024-12-30 00:00:00'
 DO
     CALL delete_outdated_orders();
 
+
+
+-- Ensure sale_date is unique in Daily_sales_summary
+ALTER TABLE Daily_sales_summary
+ADD CONSTRAINT unique_sale_date UNIQUE (sale_date);
+
+-- Create trigger to update Daily_sales_summary whenever Students table is updated
+
+DELIMITER // 
+CREATE PROCEDURE calculate_daily_sales(IN sale_date DATE) 
+BEGIN 
+    DECLARE total_sales INT; 
+    DECLARE total_sales_amount DECIMAL(10, 2); 
+
+    SELECT COUNT(*) INTO total_sales
+    FROM Orders
+    WHERE DATE(order_date) = sale_date;
+
+    SELECT SUM(price) INTO total_sales_amount
+    FROM Orders
+    WHERE DATE(order_date) = sale_date;
+
+    IF EXISTS (SELECT 1 FROM Daily_sales_summary WHERE sale_date = sale_date) THEN
+        UPDATE Daily_sales_summary
+        SET total_sales = total_sales, total_amount = total_sales_amount
+        WHERE sale_date = sale_date;
+    ELSE
+        INSERT INTO Daily_sales_summary (sale_date, total_sales, total_amount)
+        VALUES (sale_date, total_sales, total_sales_amount);
+    END IF; 
+END //
+DELIMITER ;

@@ -18,16 +18,141 @@
             }
         }
 
-        // Increment user ID and initialize data
+        // Initialize user data from input field
         function initializeUserData() {
             if (isLocalStorageAvailable()) {
-                let userId = localStorage.getItem('userId') || 1;
-                localStorage.setItem('userId', parseInt(userId) + 1);
-                document.getElementById('userId').textContent = userId;
+                const userId = localStorage.getItem('userId');
+                if (!userId) {
+                    localStorage.setItem('userId', '1');
+                }
+
+                document.getElementById('userId').value = userId || '';
             } else {
                 alert("Local storage is not available. Some features may not work.");
             }
         }
+
+
+function saveUserId() {
+    const userId = document.getElementById('userId').value;
+    
+    if (userId) {
+        // Make a POST request to save the user ID to the database
+        fetch('/save_user_id', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ userId: userId }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.message === "User ID saved successfully.") {
+                    // New user created, save user ID to localStorage and show success message
+                    localStorage.setItem('userId', userId);
+                    alert("User ID saved successfully!");
+                } else if (data.message === "User ID already exists.") {
+                    alert("User ID already exists.");
+                }
+            } else {
+                // If success is false, show the error message
+                alert("Error: " + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("Failed to save User ID.");
+        });
+    } else {
+        alert("Please enter a valid User ID.");
+    }
+}
+
+function handlePayment() {
+    const orders = JSON.parse(localStorage.getItem('orders')) || [];
+    if (orders.length === 0) {
+        alert("No orders to process!");
+        return;
+    }
+
+    const highestOrderId = Math.max(...orders.map(order => order.orderId));
+    const totalPrice = orders.reduce((sum, order) => sum + order.price, 0);
+
+    // Send data to the backend for updating the student database
+    fetch('/update_student_payment', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            userId: localStorage.getItem('userId'),
+            highestOrderId: highestOrderId,
+            totalPrice: totalPrice,
+        }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert("Payment processed successfully!");
+            // Clear the orders from localStorage after successful payment
+            localStorage.removeItem('orders');
+            displayOrders(); // Update the order table
+        } else {
+            alert("Error processing payment: " + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert("Failed to process payment.");
+    });
+}
+
+// Update transaction in the payments table
+function updateTransaction() {
+    const userId = localStorage.getItem('userId');
+    const orders = JSON.parse(localStorage.getItem('orders')) || [];
+
+    if (!userId) {
+        alert("Please enter a valid User ID.");
+        return;
+    }
+
+    if (orders.length === 0) {
+        alert("No orders to process!");
+        return;
+    }
+
+    const highestOrderId = Math.max(...orders.map(order => order.orderId));
+    const totalPrice = orders.reduce((sum, order) => sum + order.price, 0);
+
+    // Send data to backend to update the payments table
+    fetch('/update_transaction', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            userId: userId,
+            highestOrderId: highestOrderId,
+            totalPrice: totalPrice,
+        }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert("Transaction updated successfully!");
+            // Optionally clear the orders if needed
+            // localStorage.removeItem('orders');
+        } else {
+            alert("Error updating transaction: " + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert("Failed to update transaction.");
+    });
+}
 
         // Display orders in the table
         function displayOrders() {
@@ -104,8 +229,16 @@
     </style>
 </head>
 <body>
-    <h1>Welcome, User <span id="userId"></span></h1>
-    <button class="button" onclick="location.href='orders.html'" aria-label="Go to orders page">Order</button>
+    <h1>Welcome, User</h1>
+    
+    <!-- User ID Textbox -->
+    <div>
+        <label for="userId">Enter User ID: </label>
+        <input type="text" id="userId" placeholder="Enter your ID">
+        <button class="button" onclick="saveUserId()">Save User ID</button>
+    </div>
+
+    <button class="button" onclick="location.href='/orders'" aria-label="Go to orders page">Order</button>
 
     <h2>Your Orders</h2>
     <table>
@@ -123,5 +256,11 @@
     <h3>Total Price: ₹<span id="totalPrice">0.00</span></h3>
 
     <button class="button" onclick="showScanner()" aria-label="Open scanner functionality">Open Scanner</button>
+    <button class="button" onclick="handlePayment()" aria-label="Mark orders as paid">Paid</button>
+    <!-- Add the 'Update Transaction' Button -->
+<button class="button" onclick="updateTransaction()" aria-label="Update the transaction">Update Transaction</button>
+
+
 </body>
 </html>
+
