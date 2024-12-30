@@ -250,120 +250,209 @@ def update_student_payment():
 def user():
     return render_template("user.html")  # Render user.html for the /user route
 
+@app.route('/check_student_id', methods=['POST'])
+def check_student_id():
+    data = request.get_json()
+    student_id = data.get('studentId')
+    
+    # Check if student_id exists in the database
+    cursor = mysql.connection.cursor()
+    cursor.execute("SELECT COUNT(*) FROM Students WHERE student_id = %s", (student_id,))
+    count = cursor.fetchone()[0]
+    
+    if count > 0:
+        return jsonify({"exists": True})  # Student ID exists
+    else:
+        return jsonify({"exists": False})  # Student ID does not exist
+
+@app.route('/update_student', methods=['POST'])
+def update_student():
+    data = request.get_json()
+    student_id = data.get('studentId')
+    no_of_orders = data.get('no_of_orders')
+    price = data.get('price')
+    
+    cursor = mysql.connection.cursor()
+    cursor.execute("""
+        UPDATE Students 
+        SET no_of_orders = %s, price = %s
+        WHERE student_id = %s
+    """, (no_of_orders, price, student_id))
+    
+    mysql.connection.commit()
+    return jsonify({"success": True, "message": "Student data updated"})
+
+@app.route('/create_student', methods=['POST'])
+def create_student():
+    data = request.get_json()
+    student_id = data.get('studentId')
+    no_of_orders = data.get('no_of_orders')
+    price = data.get('price')
+    
+    cursor = mysql.connection.cursor()
+    cursor.execute("""
+        INSERT INTO Students (student_id, no_of_orders, price)
+        VALUES (%s, %s, %s)
+    """, (student_id, no_of_orders, price))
+    
+    mysql.connection.commit()
+    return jsonify({"success": True, "message": "New student created"})
 
 @app.route('/save_user_id', methods=['POST'])
 def save_user_id():
-    data = request.get_json()
-    user_id = data.get('userId')
-
-    if not user_id:
-        return jsonify({"success": False, "message": "User ID is required."}), 400
-
-    # Strip any extra spaces that might be accidentally included
-    user_id = user_id.strip()
-
     try:
-        # Connect to the database
+        # Parse JSON data from the request
+        data = request.json
+        student_id = data.get('userId')  # Adjusted for your schema
+
+        if not student_id:
+            return jsonify(success=False, message="Student ID is required."), 400
+
+        # Validate student_id (optional, based on your rules)
+        if len(student_id) < 3 or len(student_id) > 10:
+            return jsonify(success=False, message="Student ID must be between 3 and 10 characters."), 400
+
+        # Establish database connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if the student_id already exists in the database
+        cursor.execute("SELECT COUNT(*) AS count FROM users WHERE student_id = %s", (student_id,))
+        exists = cursor.fetchone()['count']
+
+        if exists:
+            return jsonify(success=True, message="Student ID already exists.")
+
+        # Insert the new student_id into the database
+        cursor.execute("INSERT INTO users (student_id, no_of_orders, price) VALUES (%s, %s, %s)",
+                       (student_id, 0, 0))
+        conn.commit()
+
+        return jsonify(success=True, message="Student ID saved successfully.", student_id=student_id)
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify(success=False, message="An error occurred while saving the Student ID."), 500
+
+    finally:
+        # Ensure the connection is closed
+        if 'conn' in locals():
+            conn.close()
+
+# Function to insert orders into the database
+def insert_orders(orders):
+    try:
+        # Establish a connection to the database
         connection = pymysql.connect(**db_config)
         cursor = connection.cursor()
-
-        # Check if the student_id already exists
-        query = "SELECT COUNT(*) FROM Students WHERE student_id = %s"
-        cursor.execute(query, (user_id,))
-        result = cursor.fetchone()
-
-        # Log the result for debugging
-        print(f"Result from checking user ID {user_id}: {result}")
-
-        # If student_id already exists, return success without inserting
-        if result[0] > 0:
-            return jsonify({"success": True, "message": "User ID already exists."})
-
-        # If not, insert the new student with default values (no_of_orders = 0, price = 0)
-        query = """
-        INSERT INTO Students (student_id, no_of_orders, price) 
-        VALUES (%s, 0, 0)
+        
+        # SQL query to check if a student exists
+        check_student_query = "SELECT COUNT(*) FROM Students WHERE student_id = %s"
+        
+        # SQL query to insert a student if not already exists
+        insert_student_query = "INSERT INTO Students (student_id) VALUES (%s)"
+        
+        # SQL query to insert a single order
+        insert_order_query = """
+        INSERT INTO Orders (order_id, student_id, order_name, price, order_date)
+        VALUES (%s, %s, %s, %s, %s)
         """
-        cursor.execute(query, (user_id))  # Insert default values
+
+        # Iterate over the orders and insert each one
+        for order in orders:
+            student_id = order['student_id']
+
+            # Check if the student exists in the Students table
+            cursor.execute(check_student_query, (student_id,))
+            student_count = cursor.fetchone()[0]
+            
+            # If student does not exist, insert the student into the Students table
+            if student_count == 0:
+                cursor.execute(insert_student_query, (student_id,))
+            
+            # Get the current maximum order_id
+            cursor.execute("SELECT MAX(order_id) FROM Orders")
+            max_order_id = cursor.fetchone()[0]
+            
+            if max_order_id is None:
+                max_order_id = 0  # No orders exist, start from 0
+            
+            # Increment the max_order_id for each new order
+            new_order_id = max_order_id + 1
+            max_order_id = new_order_id  # Update the max order_id for the next order
+
+            # Insert the order into the Orders table
+            cursor.execute(insert_order_query, (
+                new_order_id, 
+                student_id, 
+                order['order_name'], 
+                order['price'], 
+                datetime.now().date()  # Use the current date
+            ))
+
+        # Commit the transaction
         connection.commit()
 
-        return jsonify({"success": True, "message": "User ID saved successfully."})
-
-    except pymysql.MySQLError as e:
-        print(f"Error: {e}")
-        return jsonify({"success": False, "message": "Database error occurred."}), 500
-    finally:
         # Clean up
         cursor.close()
         connection.close()
 
+        return True
+    except pymysql.MySQLError as e:
+        print(f"Database error: {e}")
+        return False
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return False
 
+# Route to handle orders submission
 @app.route('/add_order', methods=['POST'])
 def add_order():
-    conn = None  # Initialize conn to None to avoid UnboundLocalError in finally block
+    try:
+        orders = request.json  # Get the orders from the request body
+        if not orders:
+            return jsonify({'success': False, 'message': 'No orders provided.'}), 400
 
-    # Get the orders from the request
-    orders = request.json  # Expecting a list of orders
-    print(f"Received orders: {orders}")  # Log received orders
+        # Insert the orders into the database
+        success = insert_orders(orders)
+        if success:
+            return jsonify({'success': True, 'message': 'Orders submitted successfully!'})
+        else:
+            return jsonify({'success': False, 'message': 'Failed to insert orders into the database.'}), 500
+    except Exception as e:
+        print(f"Error in add_order route: {e}")
+        return jsonify({'success': False, 'message': 'An unexpected error occurred.'}), 500
+    
+@app.route('/get_orders', methods=['POST'])
+def get_orders():
+    data = request.get_json()
+    student_id = data.get('studentId')
+
+    if not student_id:
+        return jsonify({'error': 'Student ID is required'}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
     try:
-        if not orders:
-            return jsonify({'success': False, 'message': 'No orders received.'}), 400
+        query = "SELECT order_id, order_name, price FROM orders WHERE student_id = %s"
+        cursor.execute(query, (student_id,))
+        orders = cursor.fetchall()
 
-        # Ensure that each order has the necessary fields
-        for order in orders:
-            if not all([order.get('student_id'), order.get('item_id'), order.get('order_name'), order.get('price'), order.get('order_date')]):
-                return jsonify({'success': False, 'message': 'Missing order fields.'}), 400
-            if not isinstance(order['price'], (int, float)):
-                return jsonify({'success': False, 'message': 'Price must be a number.'}), 400
+        # Convert the fetched orders to a list of dictionaries
+        order_list = [{'order_id': order[0], 'order_name': order[1], 'price': order[2]} for order in orders]
 
-        # Get a connection to the MySQL database
-        conn = pymysql.connect(**db_config)
-        cursor = conn.cursor()
-
-        # Prepare the list for batch insert
-        insert_values = []
-
-        for order in orders:
-            # Extract the necessary fields from the order (we will handle order_id manually)
-            student_id = order.get('student_id')
-            item_id = order.get('item_id')
-            order_name = order.get('order_name')
-            price = order.get('price')
-            order_date = order.get('order_date')
-
-            # Query the max order_id to calculate the next one
-            cursor.execute("SELECT MAX(order_id) FROM Orders")
-            result = cursor.fetchone()
-            next_order_id = result[0] + 1 if result[0] is not None else 1  # Start from 1 if no orders exist
-
-            # Prepare the order for insertion, including the new order_id
-            insert_values.append((next_order_id, student_id, order_name, price, order_date))
-
-        # Perform batch insert using executemany
-        cursor.executemany('''
-            INSERT INTO Orders (order_id, student_id, order_name, price, order_date)
-            VALUES (%s, %s, %s, %s, %s)
-        ''', insert_values)
-
-        # Commit the transaction
-        conn.commit()
-        return jsonify({'success': True, 'message': 'Orders added successfully'})
-
-    except pymysql.MySQLError as e:
-        print(f"Database error occurred: {e}")  # Log the error
-        if conn:  # Check if the connection exists before rolling back
-            conn.rollback()  # Rollback the transaction in case of an error
-        return jsonify({'success': False, 'message': 'Database error occurred: ' + str(e)}), 500
+        if order_list:
+            return jsonify({'orders': order_list}), 200
+        else:
+            return jsonify({'message': 'No orders found for this student'}), 404
 
     except Exception as e:
-        print(f"Unexpected error occurred: {e}")  # Log the error
-        return jsonify({'success': False, 'message': 'Unexpected error occurred: ' + str(e)}), 500
-
+        return jsonify({'error': str(e)}), 500
     finally:
-        # Close the connection if it was successfully created
-        if conn:
-            conn.close()
+        cursor.close()
+        conn.close()
+
 
 @app.route('/orders')
 def orders():

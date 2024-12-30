@@ -2,40 +2,97 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orders Page</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menu</title>
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f4f4f4;
+    }
+    .button {
+      padding: 5px 10px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .button:hover {
+      background-color: #218838;
+    }
+  </style>
+</head>
+<body>
+  <h1>Menu</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Order ID</th>
+        <th>Name</th>
+        <th>Category</th>
+        <th>Price</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="menuTableBody">
+      <!-- Menu items will be dynamically inserted here -->
+    </tbody>
+  </table>
+  <h2>Your Orders</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Order ID</th>
+        <th>Item ID</th>
+	<th>Item Name</th>
+        <th>Price</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="orderTableBody">
+      <!-- Orders will be dynamically inserted here -->
+    </tbody>
+  </table>
+  <button onclick="handleSubmit()">Submit Orders</button>
+  <script>
+	  
+const studentId = localStorage.getItem('studentId'); // Retrieve studentId from localStorage
 
-<script>
-    let menu = [];  // Store the menu items globally
-
-    // Function to load the menu from the backend
-    function loadMenu() {
+// Function to load menu items
+function loadMenu() {
   const tableBody = document.getElementById('menuTableBody');
   tableBody.innerHTML = ''; // Clear existing rows
 
   // Fetch menu data from the Flask backend
   fetch('/get_menu')
-    .then(response => response.json()) // Parse the JSON response
-    .then(fetchedMenu => {
-      menu = fetchedMenu; // Store the fetched menu
-      console.log('Fetched Menu:', menu); // Debugging fetched menu
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to fetch menu data.');
+      return response.json();
+    })
+    .then(menuItems => {
+      console.log('Fetched Menu:', menuItems); // Debugging fetched menu
 
       // Iterate through the menu items and populate the table
-      menu.forEach((item) => {
+      menuItems.forEach(item => {
         const row = document.createElement('tr');
 
-        // Ensure `item.price` is a number before displaying and using it
-        let price = parseFloat(item.price);
-        if (isNaN(price)) {
-          price = 0.00; // Handle invalid price (set to 0.00 for display)
-          console.warn(`Invalid price format for item: ${item.name}`);
-        }
+        // Ensure `item.price` is a number before displaying
+        const price = parseFloat(item.price) || 0.0;
 
         row.innerHTML = `
-          <td>${item.itemId}</td>  <td>${item.name}</td>
+          <td>${item.orderId}</td>
+          <td>${item.name}</td>
           <td>${item.category}</td>
-          <td>${price.toFixed(2)}</td>  <td><button class="button" onclick="addItem(${item.itemId}, '${item.name}', ${price})">Add</button></td>
+          <td>${price.toFixed(2)}</td>
+          <td><button class="button" onclick="addItem(${item.orderId}, '${item.name}', ${price})">Add</button></td>
         `;
         tableBody.appendChild(row);
       });
@@ -43,173 +100,81 @@
     .catch(error => console.error('Error fetching menu data:', error));
 }
 
-// Function to add an item to the order
-function addItem(itemId, itemName, itemPrice) {
+// Function to add an item to the orders
+function addItem(orderId, name, price) {
   const orders = JSON.parse(localStorage.getItem('orders')) || [];
-  const studentId = localStorage.getItem('userId') || 'Unknown'; // Retrieve the student ID from localStorage
-
-  // Calculate the next order_id (starts from 1 and increments)
-  const orderId = orders.length ? orders[orders.length - 1].order_id + 1 : 1;
+  const studentId = localStorage.getItem('studentId') || 'Unknown'; // Retrieve studentId from localStorage
 
   const order = {
-    order_id: orderId,
-    student_id: studentId,
-    item_id: itemId,
-    order_name: itemName,
-    price: itemPrice,
-    order_date: new Date().toISOString().split('T')[0] // Get today's date in YYYY-MM-DD format
+    order_id: orders.length + 1,
+    student_id: studentId, // Include student_id
+    item_id: orderId,
+    order_name: name, // Add item name to the order
+    price: price
   };
-
-  console.log('Added order:', order); // Debugging added order
-
-  // Add item to the orders array
   orders.push(order);
-
   localStorage.setItem('orders', JSON.stringify(orders));
-  displayOrderTable(); // Update the order table after adding the item
+  displayOrderTable();
 }
-    // Function to display the order table
-    function displayOrderTable() {
+
+// Function to display the orders
+function displayOrderTable() {
   const orderTableBody = document.getElementById('orderTableBody');
   orderTableBody.innerHTML = ''; // Clear existing rows
   const orders = JSON.parse(localStorage.getItem('orders')) || [];
 
-  orders.forEach((order) => {
+  orders.forEach(order => {
     const row = document.createElement('tr');
     row.innerHTML = `
-        <td>${order.order_id}</td>  <td>${order.item_id}</td>  <td>${order.price}</td>    <td>${order.order_date}</td>  <td><button class="button" onclick="deleteOrder(${order.order_id})">Delete</button></td>
+      <td>${order.order_id}</td>
+      <td>${order.item_id}</td>
+      <td>${order.order_name}</td> <!-- Display item name -->
+      <td>${order.price.toFixed(2)}</td>
+      <td><button class="button" onclick="deleteOrder(${order.order_id})">Delete</button></td>
     `;
     orderTableBody.appendChild(row);
   });
 }
-    // Function to delete an item from the order list
-    function deleteOrder(orderId) {
-        let orders = JSON.parse(localStorage.getItem('orders')) || [];
-        orders = orders.filter(order => order.order_id !== orderId); // Remove matching item
-        localStorage.setItem('orders', JSON.stringify(orders));
-        displayOrderTable(); // Update the order table after deletion
-    }
 
-    // Handle form submission (send orders to the backend)
-    function handleSubmit(event) {
-        event.preventDefault(); // Prevent form submission from refreshing the page
+// Function to delete an order
+function deleteOrder(orderId) {
+  let orders = JSON.parse(localStorage.getItem('orders')) || [];
+  orders = orders.filter(order => order.order_id !== orderId);
+  localStorage.setItem('orders', JSON.stringify(orders));
+  displayOrderTable();
+}
 
-        const orders = JSON.parse(localStorage.getItem('orders')) || [];
+// Function to submit orders to the backend
+function handleSubmit() {
+  const orders = JSON.parse(localStorage.getItem('orders')) || [];
 
-        // Send the orders to the backend for database insertion
-        fetch('/add_order', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(orders) // Send the entire orders list
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Failed to submit order: ' + response.statusText);
-            }
-            return response.json(); // Parse the response as JSON
-        })
-        .then(data => {
-            if (data.success) {
-                alert('Order submitted successfully!');
-                location.href = '/user'; // Redirect to the user page
-            } else {
-                alert('Error submitting order: ' + data.message);
-            }
-        })
-        .catch(error => {
-            alert('Error submitting order: ' + error.message);
-        });
-    }
+  fetch('/add_order', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(orders)
+  })
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to submit orders.');
+      return response.json();
+    })
+    .then(data => {
+      if (data.success) {
+        alert('Orders submitted successfully!');
+        //localStorage.removeItem('orders'); // Clear orders after submission
+        window.location.href = '/user'; // Redirect to user page
+      } else {
+        alert('Error submitting orders: ' + data.message);
+      }
+    })
+    .catch(error => alert('Error submitting orders: ' + error.message));
+}
 
-    // On page load
-    window.onload = () => {
-        loadMenu();
-        displayOrderTable();
-    };
-</script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        .button {
-            margin: 10px;
-            padding: 10px 20px;
-            background-color: blue;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .button:hover {
-            background-color: darkblue;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-        table, th, td {
-            border: 1px solid black;
-        }
-        th, td {
-            padding: 10px;
-            text-align: center;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        #date-container {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-    </style>
-</head>
-<body>
-    <div id="date-container">
-        <span id="currentDate"></span> <!-- Display today's date here -->
-    </div>
 
-    <h1>Welcome, User <span id="userId"></span></h1>
-
-    <h2>Menu</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Item ID</th>
-                <th>Item Name</th>
-                <th>Categories</th>
-                <th>Item Price</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody id="menuTableBody">
-            <!-- Menu items will populate here -->
-        </tbody>
-    </table>
-
-    <h2>Your Orders</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Order ID</th>
-                <th>Item ID</th>
-                <th>Item Name</th>
-                <th>Item Price</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody id="orderTableBody">
-            <!-- Orders will populate here -->
-        </tbody>
-    </table>
-
-    
-	<button class="button" onclick="handleSubmit(event)">Submit</button>
-
+// Load the menu on page load
+document.addEventListener('DOMContentLoaded', loadMenu);
+  </script>
 </body>
 </html>
 
