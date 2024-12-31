@@ -191,7 +191,7 @@ def get_payment_details():
         cursor = conn.cursor()
 
         # Query to get payment details (adjusted to match your table schema)
-        query = "SELECT payment_id, amount_paid, payment_date, payment_time FROM Payment"
+        query = "SELECT student_id, amount_paid, payment_date, payment_time FROM Payment"
         cursor.execute(query)
         payments = cursor.fetchall()
 
@@ -210,41 +210,84 @@ def get_payment_details():
         cursor.close()
         conn.close()
 
-@app.route('/update_student_payment', methods=['POST'])
-def update_student_payment():
+
+@app.route('/update_student_orders', methods=['POST'])
+def update_student_orders():
+    data = request.json
+    student_id = data.get('student_id')
+    no_of_orders = data.get('no_of_orders', 0)
+    total_price = data.get('price', 0)
+
+    if not student_id:
+        return jsonify({'success': False, 'message': 'Student ID is required'}), 400
+
     try:
-        data = request.json
-        user_id = data.get('userId')
-        highest_order_id = data.get('highestOrderId')
-        total_price = data.get('totalPrice')
-
-        if not all([user_id, highest_order_id, total_price]):
-            return jsonify({'success': False, 'message': 'Missing data.'}), 400
-
-        conn = pymysql.connect(**db_config)
+        # Connect to your MySQL database
+        conn = pymysql.connect(
+            host='localhost',
+            user='root',
+            password='2787',
+            database='canteen1'
+        )
         cursor = conn.cursor()
 
-        # Update the Student table with the highest order ID and total price
-        cursor.execute('''
+        # Update the student table
+        cursor.execute("""
             UPDATE Students
-            SET no_of_orders = %s, price = price + %s 
+            SET no_of_orders = no_of_orders + %s, 
+                price = price + %s
             WHERE student_id = %s
-        ''', (highest_order_id, total_price, user_id))
+        """, (no_of_orders, total_price, student_id))
 
+        # Commit the changes
         conn.commit()
-        return jsonify({'success': True})
 
-    except pymysql.MySQLError as e:
-        print(f"Database error occurred: {e}")
-        return jsonify({'success': False, 'message': str(e)}), 500
+        # Close the connection
+        cursor.close()
+        conn.close()
 
+        return jsonify({'success': True}), 200
     except Exception as e:
-        print(f"Unexpected error occurred: {e}")
-        return jsonify({'success': False, 'message': str(e)}), 500
+        print('Error updating student table:', e)
+        return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
-    finally:
-        if conn:
-            conn.close()
+@app.route('/update_student_payment', methods=['POST'])
+def update_student_payment():
+    data = request.json
+    student_id = data.get('userId')  # Ensure the frontend sends the correct `student_id`
+
+    if not student_id:
+        return jsonify({'success': False, 'message': 'Student ID is required'}), 400
+
+    try:
+        # Connect to the database
+        conn = pymysql.connect(
+            host='localhost',
+            user='root',
+            password='2787',
+            database='canteen1'
+        )
+        cursor = conn.cursor()
+
+        # Reset the no_of_orders and price for the student
+        cursor.execute("""
+            UPDATE Students
+            SET no_of_orders = 0, 
+                price = 0
+            WHERE student_id = %s
+        """, (student_id,))
+
+        # Commit the transaction
+        conn.commit()
+
+        # Close the connection
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        print('Error updating student payment:', e)
+        return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
 @app.route('/user')
 def user():

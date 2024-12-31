@@ -140,19 +140,20 @@ function handlePayment() {
         return;
     }
 
-    const highestOrderId = Math.max(...orders.map(order => order.orderId));
-    const totalPrice = orders.reduce((sum, order) => sum + order.price, 0);
+    const userId = localStorage.getItem('userId'); // Retrieve the student ID
+    if (!userId) {
+        alert("User ID not found. Please log in again.");
+        return;
+    }
 
-    // Send data to the backend for updating the student database
+    // Send data to the backend for payment processing
     fetch('/update_student_payment', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            userId: localStorage.getItem('userId'),
-            highestOrderId: highestOrderId,
-            totalPrice: totalPrice,
+            userId: userId, // Send the student_id
         }),
     })
     .then(response => response.json())

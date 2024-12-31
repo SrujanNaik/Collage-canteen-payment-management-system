@@ -147,6 +147,8 @@ function deleteOrder(orderId) {
 // Function to submit orders to the backend
 function handleSubmit() {
   const orders = JSON.parse(localStorage.getItem('orders')) || [];
+	const studentId = localStorage.getItem('studentId') || 'Unknown';
+
 
   fetch('/add_order', {
     method: 'POST',
@@ -154,6 +156,38 @@ function handleSubmit() {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(orders)
+  })
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to submit orders.');
+      return response.json();
+    })
+    .then(data => {
+      if (data.success) {
+        alert('Orders submitted successfully!');
+        //localStorage.removeItem('orders'); // Clear orders after submission
+        window.location.href = '/user'; // Redirect to user page
+      } else {
+        alert('Error submitting orders: ' + data.message);
+      }
+    })
+    .catch(error => alert('Error submitting orders: ' + error.message));
+	// Calculate the total number of orders and total price
+  const noOfOrders = orders.length;
+  const totalPrice = orders.reduce((sum, order) => sum + order.price, 0);
+
+  const payload = {
+    student_id: studentId,
+    no_of_orders: noOfOrders,
+    price: totalPrice,
+    orders: orders // Include orders if needed in backend
+  };
+
+  fetch('/update_student_orders', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
   })
     .then(response => {
       if (!response.ok) throw new Error('Failed to submit orders.');
