@@ -53,22 +53,61 @@ CREATE TABLE Daily_sales_summary (
     total_amount INT
 );
 
+
+--Created trigger which will student table as soon as orders gets updated
 DELIMITER //
-CREATE PROCEDURE calculate_daily_sales(IN sale_date DATE)
+CREATE TRIGGER after_order_insert
+AFTER INSERT ON Orders
+FOR EACH ROW
+BEGIN
+    UPDATE Students
+    SET 
+        no_of_orders = no_of_orders + 1,
+        price = price + NEW.price
+    WHERE student_id = NEW.student_id;
+END;
+//
+
+DELIMITER ;
+
+
+DELIMITER //
+
+CREATE TRIGGER after_order_insert
+AFTER INSERT ON Orders
+FOR EACH ROW
 BEGIN
     DECLARE total_sales_amount DECIMAL(10, 2);
+
     SELECT SUM(price) INTO total_sales_amount
     FROM Orders
-    WHERE DATE(order_date) = sale_date;
+    WHERE DATE(order_date) = DATE(NEW.order_date);
 
-    INSERT INTO Daily_sales_summary (sale_date, total_sales, total_amount)
-    VALUES (sale_date, total_sales_amount, total_sales_amount);
-END //
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM Daily_sales_summary
+        WHERE sale_date = DATE(NEW.order_date)
+    ) THEN
+        INSERT INTO Daily_sales_summary (sale_date, total_sales, total_amount)
+        VALUES (DATE(NEW.order_date), total_sales_amount, total_sales_amount);
+    ELSE
+        UPDATE Daily_sales_summary
+        SET 
+            total_sales = total_sales_amount,
+            total_amount = total_sales_amount
+        WHERE sale_date = DATE(NEW.order_date);
+    END IF;
+END;
+//
+
 DELIMITER ;
+
+--done
 
 -- Add order_date column to Orders table
 ALTER TABLE Orders
 ADD COLUMN order_date DATE NOT NULL DEFAULT CURDATE();
+
 
 -- Create stored procedure to delete outdated orders
 DELIMITER //
@@ -78,6 +117,7 @@ BEGIN
     WHERE order_date < CURDATE();
 END //
 DELIMITER ;
+
 
 -- (Optional) Create scheduled event to automatically delete outdated orders every day at midnight
 CREATE EVENT delete_outdated_orders_event
@@ -92,8 +132,9 @@ DO
 ALTER TABLE Daily_sales_summary
 ADD CONSTRAINT unique_sale_date UNIQUE (sale_date);
 
--- Create trigger to update Daily_sales_summary whenever Students table is updated
 
+
+-- Create trigger to update Daily_sales_summary whenever Students table is updated
 DELIMITER // 
 CREATE PROCEDURE calculate_daily_sales(IN sale_date DATE) 
 BEGIN 
