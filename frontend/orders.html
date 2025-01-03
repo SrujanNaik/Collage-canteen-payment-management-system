@@ -35,7 +35,6 @@
   <table>
     <thead>
       <tr>
-        <th>Order ID</th>
         <th>Name</th>
         <th>Category</th>
         <th>Price</th>
@@ -51,7 +50,6 @@
     <thead>
       <tr>
         <th>Order ID</th>
-        <th>Item ID</th>
 	<th>Item Name</th>
         <th>Price</th>
         <th>Action</th>
@@ -88,7 +86,6 @@ function loadMenu() {
         const price = parseFloat(item.price) || 0.0;
 
         row.innerHTML = `
-          <td>${item.orderId}</td>
           <td>${item.name}</td>
           <td>${item.category}</td>
           <td>${price.toFixed(2)}</td>
@@ -127,7 +124,6 @@ function displayOrderTable() {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${order.order_id}</td>
-      <td>${order.item_id}</td>
       <td>${order.order_name}</td> <!-- Display item name -->
       <td>${order.price.toFixed(2)}</td>
       <td><button class="button" onclick="deleteOrder(${order.order_id})">Delete</button></td>
@@ -145,65 +141,30 @@ function deleteOrder(orderId) {
 }
 
 // Function to submit orders to the backend
+
 function handleSubmit() {
   const orders = JSON.parse(localStorage.getItem('orders')) || [];
-	const studentId = localStorage.getItem('studentId') || 'Unknown';
-
 
   fetch('/add_order', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(orders)
+    body: JSON.stringify(orders)  // Send the order data
   })
-    .then(response => {
-      if (!response.ok) throw new Error('Failed to submit orders.');
-      return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
       if (data.success) {
         alert('Orders submitted successfully!');
-        //localStorage.removeItem('orders'); // Clear orders after submission
-        window.location.href = '/user'; // Redirect to user page
+        localStorage.removeItem('orders');  // Clear local storage
+        window.location.href = '/user';    // Redirect to user page
       } else {
         alert('Error submitting orders: ' + data.message);
       }
     })
-    .catch(error => alert('Error submitting orders: ' + error.message));
-	// Calculate the total number of orders and total price
-  const noOfOrders = orders.length;
-  const totalPrice = orders.reduce((sum, order) => sum + order.price, 0);
-
-  const payload = {
-    student_id: studentId,
-    no_of_orders: noOfOrders,
-    price: totalPrice,
-    orders: orders // Include orders if needed in backend
-  };
-
-  fetch('/update_student_orders', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  })
-    .then(response => {
-      if (!response.ok) throw new Error('Failed to submit orders.');
-      return response.json();
-    })
-    .then(data => {
-      if (data.success) {
-        alert('Orders submitted successfully!');
-        //localStorage.removeItem('orders'); // Clear orders after submission
-        window.location.href = '/user'; // Redirect to user page
-      } else {
-        alert('Error submitting orders: ' + data.message);
-      }
-    })
-    .catch(error => alert('Error submitting orders: ' + error.message));
+    .catch(error => alert('Error: ' + error.message));
 }
+
 
 
 // Load the menu on page load

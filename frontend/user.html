@@ -18,25 +18,6 @@
             }
         }
 
-document.addEventListener('DOMContentLoaded', function() {
-  // Fetch the orders from localStorage
-  const orders = JSON.parse(localStorage.getItem('orders')) || [];
-
-  // Display the orders in the table
-  const orderTableBody = document.getElementById('orderTableBody');
-  orderTableBody.innerHTML = ''; // Clear existing rows
-
-  orders.forEach(order => {
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td>${order.order_id}</td>
-      <td>${order.item_id}</td>
-      <td>${order.order_name}</td>
-      <td>${order.price.toFixed(2)}</td>
-    `;
-    orderTableBody.appendChild(row);
-  });
-});
         // Initialize user data from input field
         function initializeUserData() {
             if (isLocalStorageAvailable()) {
@@ -59,95 +40,116 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 function saveStudentId() {
-    const studentIdInput = document.getElementById('studentIdInput');  // This is the input field for student ID
+    const studentIdInput = document.getElementById('studentIdInput');
     const studentId = studentIdInput.value.trim();
 
-    if (studentId) {
-        localStorage.setItem('studentId', studentId);  // Store student ID in localStorage
-        alert("Student ID saved successfully: " + studentId);
-    } else {
+    if (!studentId) {
         alert("Please enter a valid Student ID.");
-    }    if (studentId) {
-        // Check if the student ID exists in the database
-        fetch('/check_student_id', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ studentId: studentId }),
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.exists) {
-                // If the student ID exists, update the record
-                fetch('/update_student', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        studentId: studentId,
-                        no_of_orders: 0,
-                        price: 0
-                    }),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert("Student ID updated successfully with 0 orders and 0 price.");
-                    } else {
-                        alert("Error updating student data.");
-                    }
-                })
-                .catch(error => alert("Error updating student data: " + error));
-            } else {
-                // If the student ID doesn't exist, create a new record
-                fetch('/create_student', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        studentId: studentId,
-                        no_of_orders: 0,
-                        price: 0
-                    }),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert("New student created successfully with 0 orders and 0 price.");
-                    } else {
-                        alert("Error creating new student.");
-                    }
-                })
-                .catch(error => alert("Error creating new student: " + error));
-            }
-        })
-        .catch(error => {
-            console.error('Error checking student ID:', error);
-            alert("Error checking student ID.");
-        });
-    } else {
-        alert("Please enter a valid Student ID.");
-    }
-}
-
-function handlePayment() {
-    const orders = JSON.parse(localStorage.getItem('orders')) || [];
-    if (orders.length === 0) {
-        alert("No orders to process!");
         return;
     }
 
-    const userId = localStorage.getItem('userId'); // Retrieve the student ID
+    // First, check if student ID exists in the database
+    fetch('/check_student_id', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ studentId: studentId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.exists) {
+            // Student ID already exists, just save it to localStorage
+            localStorage.setItem('studentId', studentId);
+            studentIdInput.value = studentId; // Ensure input field reflects updated value
+            alert("Student ID saved successfully: " + studentId);
+        } else {
+            // Student ID does not exist, create a new student record in the database
+            fetch('/create_student', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ studentId: studentId, no_of_orders: 0, price: 0 })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    localStorage.setItem('studentId', studentId);
+                    studentIdInput.value = studentId; // Ensure input field reflects updated value
+                    alert("New student created successfully with ID: " + studentId);
+                } else {
+                    alert("Error creating new student: " + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error creating student:', error);
+                alert("Error creating new student.");
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error checking student ID:', error);
+        alert("Error checking student ID.");
+    });
+}
+
+
+
+let totalPrice = 0; // Global variable to store the total price
+
+function displayOrders(orders) {
+    const tableBody = document.getElementById('orderTableBody'); // Get the tbody element
+    tableBody.innerHTML = ''; // Clear existing table rows
+    totalPrice = 0; // Reset total price on each display
+
+    // Loop through the orders and create table rows
+    orders.forEach(order => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${order.order_name}</td>
+            <td>₹${order.price.toFixed(2)}</td>
+        `;
+        tableBody.appendChild(row);
+        totalPrice += parseFloat(order.price); // Add price to total
+    });
+
+    // Update the total price displayed at the bottom of the table
+    const totalPriceElement = document.getElementById('totalPrice');
+    totalPriceElement.textContent = totalPrice.toFixed(2); // Update total price
+}
+
+
+fetch('/get_orders', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ studentId: localStorage.getItem('studentId') })
+})
+.then(response => response.json())
+.then(data => {
+    if (data.orders && data.orders.length > 0) {
+        displayOrders(data.orders); // Pass fetched orders to the display function
+    } else {
+        alert("No orders found for this student.");
+    }
+})
+.catch(error => {
+    console.error('Error fetching orders:', error);
+    alert("Error fetching orders.");
+});
+
+
+function handlePayment() {
+    const userId = localStorage.getItem('studentId'); // Retrieve the student ID
     if (!userId) {
         alert("User ID not found. Please log in again.");
         return;
     }
 
     // Send data to the backend for payment processing
-    fetch('/update_student_payment', {
+    fetch('/update_orders', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -159,10 +161,10 @@ function handlePayment() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert("Payment processed successfully!");
+            alert("Payment processed successfully! Orders have been cleared.");
             // Clear the orders from localStorage after successful payment
             localStorage.removeItem('orders');
-            displayOrders(); // Update the order table
+            displayOrders([]); // Clear the order table by passing an empty array
         } else {
             alert("Error processing payment: " + data.message);
         }
@@ -174,22 +176,19 @@ function handlePayment() {
 }
 
 // Update transaction in the payments table
+
 function updateTransaction() {
-    const userId = localStorage.getItem('userId');
-    const orders = JSON.parse(localStorage.getItem('orders')) || [];
+    const userId = localStorage.getItem('studentId');
 
     if (!userId) {
         alert("Please enter a valid User ID.");
         return;
     }
 
-    if (orders.length === 0) {
-        alert("No orders to process!");
+    if (totalPrice <= 0) {
+        alert("No valid orders or total price is zero.");
         return;
     }
-
-    const highestOrderId = Math.max(...orders.map(order => order.orderId));
-    const totalPrice = orders.reduce((sum, order) => sum + order.price, 0);
 
     // Send data to backend to update the payments table
     fetch('/update_transaction', {
@@ -199,7 +198,6 @@ function updateTransaction() {
         },
         body: JSON.stringify({
             userId: userId,
-            highestOrderId: highestOrderId,
             totalPrice: totalPrice,
         }),
     })
@@ -218,6 +216,7 @@ function updateTransaction() {
         alert("Failed to update transaction.");
     });
 }
+
 
         // Display orders in the table
         
@@ -251,54 +250,8 @@ function fetchOrders() {
         alert("Error fetching orders.");
     });
 }
-
-function displayOrders(orders) {
-    const tableBody = document.getElementById('orderTableBody'); // Get the tbody element
-    tableBody.innerHTML = ''; // Clear existing table rows
-    let total = 0;
-
-    // Loop through the orders and create table rows
-    orders.forEach((order, index) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${order.order_id}</td>
-            <td>${order.order_name}</td>
-            <td>${order.price.toFixed(2)}</td>
-        `;
-        tableBody.appendChild(row);
-        total += parseFloat(order.price); // Add price to total
-        console.log(`Adding ${order.price} to total: ${total}`); // Debugging
-    });
-
-    // Update the total price displayed at the bottom of the table
-    const totalPriceElement = document.getElementById('totalPrice');
-    if (totalPriceElement) {
-        totalPriceElement.textContent = total.toFixed(2); // Update total price
-    } else {
-        console.error("Element with id 'totalPrice' not found.");
-    }
-}
-   // Initialize page on load
        
- // Function to display the orders
-    function displayOrderTable() {
-      const orderTableBody = document.getElementById('orderTableBody');
-      orderTableBody.innerHTML = ''; // Clear existing rows
-      const orders = JSON.parse(localStorage.getItem('orders')) || [];
-
-      orders.forEach(order => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${order.order_id}</td>
-          <td>${order.item_id}</td>
-          <td>${order.order_name}</td>
-          <td>${order.price.toFixed(2)}</td>
-        `;
-        orderTableBody.appendChild(row);
-      });
-    }
-
-    // Function to submit the orders from localStorage to the backend
+     // Function to submit the orders from localStorage to the backend
     function handleOrderSubmit() {
       const orders = JSON.parse(localStorage.getItem('orders')) || [];
 
@@ -346,39 +299,112 @@ window.onload = () => {
             font-family: Arial, sans-serif;
             margin: 20px;
             background-color: #f9f9f9;
+            color: #333; /* Neutral text color */
         }
+
+        /* Button styling */
         .button {
+            display: inline-block;
             margin: 10px;
             padding: 10px 20px;
-            background-color: blue;
+            background-color: #4CAF50; /* Green background */
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            transition: background-color 0.3s;
+            font-size: 16px;
+            transition: background-color 0.3s, transform 0.2s;
         }
+
         .button:hover {
-            background-color: darkblue;
+            background-color: #388E3C; /* Darker green on hover */
+            transform: scale(1.05); /* Slight zoom effect */
         }
+
+        /* Input field styling */
+        input[type="text"], input[type="number"], input[type="email"], textarea, select {
+            width: 100%; /* Full width */
+            max-width: 400px; /* Limit the width */
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus, textarea:focus {
+            border-color: #4CAF50; /* Green border on focus */
+            outline: none;
+        }
+
+        /* Table styling */
         table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            background-color: white;
+            width: 50%; /* Reduce the width of the table */
+            margin: 20px 0; /* Remove auto centering, align to the left */            border-collapse: collapse; /* Remove spacing between cells */
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2); /* Add a subtle shadow */
+            background-color: #f9f9f9; /* Light background color */
+            border: 1px solid #ddd; /* Border for the table */
         }
-        table, th, td {
+
+        /* Style for table header */
+        thead th {
+            background-color: #4CAF50; /* Green background for header */
+            color: white; /* White text */
+            font-weight: bold; /* Bold text */
+            padding: 10px; /* Add padding */
+            text-align: left; /* Align text to the left */
+            border-bottom: 2px solid #ddd; /* Bottom border */
+        }
+
+        /* Style for table rows */
+        tbody tr {
+            border-bottom: 1px solid #ddd; /* Border between rows */
+        }
+
+        /* Style for table data cells */
+        tbody td {
+            padding: 8px; /* Add padding */
+            text-align: left; /* Align text to the left */
+        }
+
+        /* Highlight row on hover */
+        tbody tr:hover {
+            background-color: #f1f1f1; /* Light grey background on hover */
+        }
+
+        /* Form styling */
+        form {
+            max-width: 600px; /* Restrict form width */
+            margin: 20px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
             border: 1px solid #ddd;
         }
-        th, td {
-            padding: 10px;
-            text-align: center;
+
+        form h2 {
+            margin-top: 0;
+            color: #4CAF50; /* Green for form heading */
         }
-        th {
-            background-color: #f2f2f2;
-        }
+
+        /* Responsive styling for small screens */
         @media (max-width: 600px) {
             table, th, td {
                 font-size: 12px;
+            }
+
+            .button {
+                font-size: 14px;
+                padding: 8px 16px;
+            }
+
+            input[type="text"], input[type="number"], textarea {
+                font-size: 14px;
+            }
+
+            form {
+                padding: 15px;
             }
         }
     </style>
@@ -390,30 +416,30 @@ window.onload = () => {
 <div>
     <label for="studentIdInput">Enter Student ID: </label>
     <input type="text" id="studentIdInput" placeholder="Enter Student ID">
+    <button class="button" onclick="saveStudentId()" aria-label="Update StudentId">Update stuentID</button>
 </div>
 
     <button class="button" onclick="location.href='/orders'" aria-label="Go to orders page">Order</button>
 
     <h2>Your Orders</h2>
+    
     <table>
-        <thead>
-            <tr>
-                <th>Order ID</th>
-                <th>item ID</th>
-		<th>Order Name</th>
-                <th>Price</th>
-            </tr>
-        </thead>
-        <tbody id="orderTableBody">
-            <!-- Orders will populate here -->
-        </tbody>
+    <thead>
+        <tr>
+            <th>Order Name</th>
+            <th>Price</th>
+        </tr>
+    </thead>
+    <tbody id="orderTableBody">
+        <!-- Orders will populate here -->
+    </tbody>
     </table>
     <h3>Total Price: ₹<span id="totalPrice">0.00</span></h3>
 
     <button class="button" onclick="showScanner()" aria-label="Open scanner functionality">Open Scanner</button>
-    <button class="button" onclick="handlePayment()" aria-label="Mark orders as paid">Paid</button>
     <!-- Add the 'Update Transaction' Button -->
 <button class="button" onclick="updateTransaction()" aria-label="Update the transaction">Update Transaction</button>
+    <button class="button" onclick="handlePayment()" aria-label="Mark orders as paid">Paid</button>
 
 
 </body>

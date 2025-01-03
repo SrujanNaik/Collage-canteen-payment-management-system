@@ -63,22 +63,19 @@
         }
     </style>
     <script>
-        // Dummy data for sales summary
-        const salesSummary = [
-            { date: '2024-12-29', no_of_sales: 120, total_amount: 5000 },
-            { date: '2024-12-28', no_of_sales: 150, total_amount: 6000 },
-            { date: '2024-12-27', no_of_sales: 100, total_amount: 4000 },
-        ];
+        // Function to load sales summary from Flask backend
+        async function loadSummary() {
+            const response = await fetch('/get_sales_summary');
+            const salesSummary = await response.json();
 
-        // Function to load sales summary into the table
-        function loadSummary() {
             const tableBody = document.getElementById('summaryTableBody');
             tableBody.innerHTML = ''; // Clear existing rows
+
             salesSummary.forEach((summary) => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${summary.date}</td>
-                    <td>${summary.no_of_sales}</td>
+                    <td>${summary.sale_date}</td>
+                    <td>${summary.total_sales}</td>
                     <td>${summary.total_amount}</td>
                 `;
                 tableBody.appendChild(row);
@@ -105,3 +102,4 @@
     <a href="/admin" class="button">Back to Admin Dashboard</a>
 </body>
 </html>
+

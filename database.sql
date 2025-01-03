@@ -53,6 +53,15 @@ CREATE TABLE Daily_sales_summary (
     total_amount INT
 );
 
+-- Ensure sale_date is unique in Daily_sales_summary
+ALTER TABLE Daily_sales_summary
+ADD CONSTRAINT unique_sale_date UNIQUE (sale_date);
+
+-- Add order_date column to Orders table
+ALTER TABLE Orders
+ADD COLUMN order_date DATE NOT NULL DEFAULT CURDATE();
+
+ALTER TABLE MENU ADD availability INT NOT NULL DEFAULT 0;
 
 --Created trigger which will student table as soon as orders gets updated
 DELIMITER //
@@ -71,43 +80,60 @@ END;
 DELIMITER ;
 
 
-DELIMITER //
+DELIMITER $$
 
-CREATE TRIGGER after_order_insert
+CREATE TRIGGER update_daily_sales_after_insert
 AFTER INSERT ON Orders
 FOR EACH ROW
 BEGIN
-    DECLARE total_sales_amount DECIMAL(10, 2);
+    DECLARE total_sales DECIMAL(10,2);
+    DECLARE total_amount INT;
 
-    SELECT SUM(price) INTO total_sales_amount
+    SELECT SUM(price) INTO total_sales
     FROM Orders
-    WHERE DATE(order_date) = DATE(NEW.order_date);
+    WHERE order_date = CURDATE();
 
-    IF NOT EXISTS (
-        SELECT 1 
-        FROM Daily_sales_summary
-        WHERE sale_date = DATE(NEW.order_date)
-    ) THEN
-        INSERT INTO Daily_sales_summary (sale_date, total_sales, total_amount)
-        VALUES (DATE(NEW.order_date), total_sales_amount, total_sales_amount);
-    ELSE
-        UPDATE Daily_sales_summary
-        SET 
-            total_sales = total_sales_amount,
-            total_amount = total_sales_amount
-        WHERE sale_date = DATE(NEW.order_date);
-    END IF;
-END;
-//
+    SELECT COUNT(*) INTO total_amount
+    FROM Orders
+    WHERE order_date = CURDATE();
+
+    INSERT INTO Daily_sales_summary (sale_date, total_sales, total_amount)
+    VALUES (CURDATE(), total_sales, total_amount)
+    ON DUPLICATE KEY UPDATE 
+        total_sales = total_sales + VALUES(total_sales),
+        total_amount = total_amount + VALUES(total_amount);
+END $$
 
 DELIMITER ;
 
+DELIMITER $$
+
+CREATE TRIGGER update_daily_sales_after_update
+AFTER UPDATE ON Orders
+FOR EACH ROW
+BEGIN
+    DECLARE total_sales DECIMAL(10,2);
+    DECLARE total_amount INT;
+
+    SELECT SUM(price) INTO total_sales
+    FROM Orders
+    WHERE order_date = CURDATE();
+
+    SELECT COUNT(*) INTO total_amount
+    FROM Orders
+    WHERE order_date = CURDATE();
+
+    INSERT INTO Daily_sales_summary (sale_date, total_sales, total_amount)
+    VALUES (CURDATE(), total_sales, total_amount)
+    ON DUPLICATE KEY UPDATE 
+        total_sales = total_sales + VALUES(total_sales),
+        total_amount = total_amount + VALUES(total_amount);
+END $$
+
+DELIMITER ;
+
+
 --done
-
--- Add order_date column to Orders table
-ALTER TABLE Orders
-ADD COLUMN order_date DATE NOT NULL DEFAULT CURDATE();
-
 
 -- Create stored procedure to delete outdated orders
 DELIMITER //
@@ -128,34 +154,4 @@ DO
 
 
 
--- Ensure sale_date is unique in Daily_sales_summary
-ALTER TABLE Daily_sales_summary
-ADD CONSTRAINT unique_sale_date UNIQUE (sale_date);
 
-
-
--- Create trigger to update Daily_sales_summary whenever Students table is updated
-DELIMITER // 
-CREATE PROCEDURE calculate_daily_sales(IN sale_date DATE) 
-BEGIN 
-    DECLARE total_sales INT; 
-    DECLARE total_sales_amount DECIMAL(10, 2); 
-
-    SELECT COUNT(*) INTO total_sales
-    FROM Orders
-    WHERE DATE(order_date) = sale_date;
-
-    SELECT SUM(price) INTO total_sales_amount
-    FROM Orders
-    WHERE DATE(order_date) = sale_date;
-
-    IF EXISTS (SELECT 1 FROM Daily_sales_summary WHERE sale_date = sale_date) THEN
-        UPDATE Daily_sales_summary
-        SET total_sales = total_sales, total_amount = total_sales_amount
-        WHERE sale_date = sale_date;
-    ELSE
-        INSERT INTO Daily_sales_summary (sale_date, total_sales, total_amount)
-        VALUES (sale_date, total_sales, total_sales_amount);
-    END IF; 
-END //
-DELIMITER ;
